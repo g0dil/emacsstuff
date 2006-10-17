@@ -47,7 +47,7 @@
 (defconst c-user-prefix-re (regexp-opt c-user-prefixes t))
 
 (defconst ccide-doxy-tag-re 
-  "\\\\(group\\|defgroup\\|see\\|author\\|version\\|id\\|since\\|returns?\\|throws\\|exception\\|raises\\|param\\|li\\|short\\|internal\\)\\b")
+  "\\\\\\(group\\|defgroup\\|see\\|author\\|version\\|id\\|since\\|returns?\\|throws\\|exception\\|raises\\|param\\|li\\|short\\|internal\\)\\b")
 
 (defconst ccide-special-extensions
   '(".h" ".hh" ".mpp" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci"))

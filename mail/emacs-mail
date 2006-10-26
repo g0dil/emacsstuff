@@ -1,0 +1,14 @@
+#!/usr/bin/python
+
+import sys
+import re
+import os
+
+QRE = re.compile("[\\\"]")
+
+def quote(s):
+    def repl(m): return "\\"+m.group(0)
+    return QRE.sub(repl,s)
+        
+os.spawnlp(os.P_WAIT,"gnuclient","gnuclient","--eval",
+           "(write-mail \"" + "\" \"".join(map(quote,sys.argv[1:])) + "\")")

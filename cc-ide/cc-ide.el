@@ -105,23 +105,29 @@
     ("vc"  ccide-variable-comment	      "Variable comment")
     ("vf"  ccide-grab-acces-fn		      "Grab access methods")
     (nil   nil				      separator)
+
+    ;; documentation
+    ("h"  ccide-hide-all-doxy-comments        "Hide all Doxygen comments")
+    ("s"  ccide-show-all-comments             "Show all Doxygen comments")
     					  
-    ;; CORBA				  
-    ("Cg"  ccide-gen-corba-impl		      "Generate CORBA impl")
-    ("Cm"  ccide-gen-corba-impl-methods       "Generate CORBA impl methods")
-    (nil   nil				      separator)
+;    ;; CORBA				  
+;    ("Cg"  ccide-gen-corba-impl		      "Generate CORBA impl")
+;    ("Cm"  ccide-gen-corba-impl-methods       "Generate CORBA impl methods")
+;    (nil   nil				      separator)
     					  
     ;; templates			  
 ;    ("ts"  ccide-scan-mantemps		      "Scan mantemps")
 ;    (nil   nil                                separator)
 
-    ;; other
-    ("of"  ccide-open-compilation-frame       "Open *compilation* frame")
-    ("oc"  ccide-compile-compile              "Make -> Compile")
-    ("ox"  ccide-compile-clean                "Make -> Clean")
-    ("od"  ccide-compile-cleandepends         "Make -> Clean depends")
-    ("ok"  ccide-compile-kill                 "Kill compilation")
-    ("oh"  ccide-hide-compilation             "Hide *compilation* buffer")))
+;    ;; other
+;    ("of"  ccide-open-compilation-frame       "Open *compilation* frame")
+;    ("oc"  ccide-compile-compile              "Make -> Compile")
+;    ("ox"  ccide-compile-clean                "Make -> Clean")
+;    ("od"  ccide-compile-cleandepends         "Make -> Clean depends")
+;    ("ok"  ccide-compile-kill                 "Kill compilation")
+;    ("oh"  ccide-hide-compilation             "Hide *compilation* buffer")
+
+    ))
 
 ;;; Code:
 

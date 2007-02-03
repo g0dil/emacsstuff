@@ -167,11 +167,18 @@
 (defun ccide-in-doxy-comment ()
   (save-excursion
     (back-to-indentation)
-    (if (eq (c-in-literal) 'c)
-	(progn
-	  (goto-char (car (c-literal-limits)))
-	  (and (looking-at "/\\*\\*[ \t\n\r@]")
-	       (current-column))))))
+    (let ((lit (c-in-literal)))
+      (if (cond ((eq lit 'c)
+		 (goto-char (car (c-literal-limits)))
+		 (looking-at "/\\*\\*<?[ \t\n\r@]"))
+		((eq lit 'c++)
+		 (goto-char (car (c-literal-limits)))
+		 (looking-at "///<?[ \t\n\r@]"))
+		(t nil))
+		
+	  (progn
+	    (goto-char (match-end 0))
+	    (current-column))))))
 
 (defun ccide-shell-command (command)
   (let ((obuf (get-buffer-create "*ccide shell command*"))
@@ -1028,7 +1035,6 @@ declaration at the top of the kill ring."
 		     (back-to-indentation)
 		     (c-literal-limits)))
 	      (pos (- (point-max) (point))))
-	  (incf indent 4)
 	  (save-excursion
 	    (back-to-indentation)
 	    (if (looking-at "*/")

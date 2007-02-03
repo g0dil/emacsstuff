@@ -49,7 +49,8 @@
 (defconst ccide-doxy-tag-re 
   (concat "\\\\\\(group\\|defgroup\\|see\\|author\\|version\\|id\\|since"
 	  "\\|returns?\\|throws?\\|exception\\|raises\\|param\\|li\\|brief"
-	  "\\|internal\\|bug\\|fixme\\|todo\\|idea\\|implementation\\)\\b"))
+	  "\\|internal\\|bug\\|fixme\\|todo\\|idea\\|implementation"
+	  "\\|note\\|attention\\|warning\\)\\b"))
 
 (defconst ccide-special-extensions
   '(".h" ".hh" ".mpp" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci"))
@@ -1380,6 +1381,8 @@ instatiations at point."
   (local-set-key "\C-cC" 'ccide-hide-all-doxy-comments)
   (local-set-key "\C-cS" 'ccide-show-all-comments)
   (set (make-local-variable 'auto-fill-function) 'ccide-fill-function)
+  (set (make-local-variable 'paragraph-start) (concat "[ \t\f]*$\\|[ \t\f]*" ccide-doxy-tag-re))
+  (set (make-local-variable 'paragraph-separate) "[ \t\f]*$")
   (auto-fill-mode -1)
   (ccide-auto-decorate-new-files))
 

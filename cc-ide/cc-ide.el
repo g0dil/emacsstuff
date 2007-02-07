@@ -50,7 +50,7 @@
   (concat "\\\\\\(group\\|defgroup\\|see\\|author\\|version\\|id\\|since"
 	  "\\|returns?\\|throws?\\|exception\\|raises\\|param\\|li\\|brief"
 	  "\\|internal\\|bug\\|fixme\\|todo\\|idea\\|implementation"
-	  "\\|note\\|attention\\|warning\\)\\b"))
+	  "\\|note\\|attention\\|warning\\|par\\)\\b"))
 
 (defconst ccide-special-extensions
   '(".h" ".hh" ".mpp" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci"))
@@ -208,8 +208,11 @@
 	    " " ccide-default-author "\n"
             ccide-default-copyright
             "\n")
+
     (cond ((string-match "\\.hh?$" (buffer-file-name))
-	   (insert "#ifndef " (ccide-file-macro-name) "\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " public header */\n\n"
+		   "#ifndef " (ccide-file-macro-name) "\n"
 		   "#define " (ccide-file-macro-name) " 1\n\n"
                    "// Custom includes\n\n"
                    "//#include \"" (ccide-file-name ".mpp") "\"\n"
@@ -220,37 +223,37 @@
 		   "//#include \"" (ccide-file-name ".cci") "\"\n"
 		   "//#include \"" (ccide-file-name ".ct") "\"\n"
 		   "//#include \"" (ccide-file-name ".cti") "\"\n"
-                   "//#include \"" (ccide-file-name ".mpp") "\"\n"
 		   "#endif"))
+
 	  ((string-match "\\.mpp$" (buffer-file-name))
-	   (insert "#if !BOOST_PP_IS_ITERATING\n"
-                   "#ifndef " (ccide-file-macro-name) "\n\n"
-                   "// Custom includes\n\n"
-                   "//////////////////////////////mpp.p////////////////////////////////////////\n"
-                   "// Local Macros\n\n"
-                   "//////\n"
-                   "#endif\n"
-                   "#else\n"
-                   "///////////////////////////////////////////////////////////////////////////\n\n"
-                   "//////\n"
-                   "#if BOOST_PP_ITERATION_FLAGS()==1\n"
-                   "///////////////////////////////////////////////////////////////////////////\n\n")
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " Boost.Preprocesser external iteration include */\n\n"
+
+
+		   "#if !BOOST_PP_IS_ITERATING && !defined(" (ccide-file-macro-name) ")\n"
+		   "#define " (ccide-file-macro-name) " 1\n\n"
+		   "// Custom includes\n\n\n"
+		   "// ///////////////////////////mpp.p////////////////////////////////////////\n"
+		   "#elif BOOST_PP_IS_ITERATING // ////////////////////////////////////////////\n"
+		   "// ////////////////////////////////////////////////////////////////////////\n"
+		   "// Local Macros\n\n\n"
+		   "// ////////////////////////////////////////////////////////////////////////\n"
+		   "#if BOOST_PP_ITERATION_FLAGS()==1 // //////////////////////////////////////\n"
+		   "// ////////////////////////////////////////////////////////////////////////\n\n")
 	   (setq point (point))
 	   (goto-char (point-max))
-	   (insert "\n\n//////\n"
-                   "#endif\n"
-                   "#endif\n"
-                   "#if !BOOST_PP_IS_ITERATING\n"
-                   "#ifdef " (ccide-file-macro-name) "\n"
-                   "///////////////////////////////////////////////////////////////////////////\n"
-                   "// Undefine local Macros\n\n"
-                   "//////////////////////////////mpp.e////////////////////////////////////////\n"
-                   "#else\n"
-                   "#define " (ccide-file-macro-name) " 1\n"
-                   "#endif\n"
-                   "#endif"))
+	   (insert "\n\n// ////////////////////////////////////////////////////////////////////////\n"
+		   "#endif // /////////////////////////////////////////////////////////////////\n"
+		   "// ////////////////////////////////////////////////////////////////////////\n"
+		   "// Undefine local Macros\n\n\n"
+		   "// ////////////////////////////////////////////////////////////////////////\n"
+		   "#endif // /////////////////////////////////////////////////////////////////\n"
+		   "// ///////////////////////////mpp.e////////////////////////////////////////"))
+
 	  ((string-match "\\.ih$" (buffer-file-name))
-	   (insert "#ifndef " (ccide-file-macro-name) "\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " internal header */\n\n"
+		   "#ifndef " (ccide-file-macro-name) "\n"
 		   "#define " (ccide-file-macro-name) " 1\n\n"
                    "// Custom includes\n\n"
                    "///////////////////////////////ih.p////////////////////////////////////////\n\n")
@@ -258,9 +261,11 @@
 	   (goto-char (point-max))
 	   (insert "\n\n///////////////////////////////ih.e////////////////////////////////////////\n"
                    "#endif"))
+
           ((or (string-match "\\.test\\.cc$" (buffer-file-name))
                (string-match "\\.test\\.cpp$" (buffer-file-name)))
-	   (insert "// Unit tests\n\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " unit tests */\n\n"
 		   "//#include \"" (ccide-file-name ".hh") "\"\n"
 		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n"
@@ -273,9 +278,11 @@
 	   (goto-char (point-max))
            (insert "\n\n///////////////////////////////cc.e////////////////////////////////////////\n"
 		   "#undef prefix_"))
+
 	  ((or (string-match "\\.cc$" (buffer-file-name))
 	       (string-match "\\.cpp$" (buffer-file-name)))
-	   (insert "// Definition of non-inline non-template functions\n\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " non-inline non-template implementation */\n\n"
 		   "//#include \"" (ccide-file-name ".hh") "\"\n"
 		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n\n"
@@ -287,8 +294,10 @@
            (insert "\n\n///////////////////////////////cc.e////////////////////////////////////////\n"
 		   "#undef prefix_\n"
                    "//#include \"" (ccide-file-name ".mpp") "\""))
+
 	  ((string-match "\\.cci$" (buffer-file-name))
-	   (insert "// Definition of inline non-template functions\n\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " inline non-template implementation */\n\n"
                    "// Custom includes\n\n"
 		   "#define prefix_ inline\n"
                    "///////////////////////////////cci.p///////////////////////////////////////\n\n")
@@ -296,8 +305,10 @@
 	   (goto-char (point-max))
            (insert "\n\n///////////////////////////////cci.e///////////////////////////////////////\n"
 		   "#undef prefix_"))
+
 	  ((string-match "\\.ct$" (buffer-file-name))
-	   (insert "// Definition of non-inline template functions\n\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " non-inline template implementation  */\n\n"
 		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n\n"
 		   "#define prefix_\n"
@@ -306,8 +317,10 @@
 	   (goto-char (point-max))
            (insert "\n\n///////////////////////////////ct.e////////////////////////////////////////\n"
 		   "#undef prefix_"))
+
 	  ((string-match "\\.cti$" (buffer-file-name))
-	   (insert "// Definition of inline template functions\n\n"
+	   (insert "/** \\file\n"
+		   "    \\brief " (ccide-file-name) " inline template implementation */\n\n"
 		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n\n"
 		   "#define prefix_ inline\n"
@@ -316,13 +329,16 @@
 	   (goto-char (point-max))
            (insert "\n\n///////////////////////////////cti.e///////////////////////////////////////\n"
 		   "#undef prefix_"))
+
 	  ((string-match "\\.java$" (buffer-file-name))
 	   (setq mode "jde")
 	   (setq point (point))
 	   (goto-char (point-max)))
+
 	  (t
 	   (setq point (point))
 	   (goto-char (point-max))))
+
     (insert "\n\n\n"
 	    "// Local Variables:\n"
 	    "// mode: " mode "\n")

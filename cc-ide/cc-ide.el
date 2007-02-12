@@ -44,16 +44,19 @@
 (defvar ccide-gen-throw nil
   "*If non-nil, generate throw_ specs")
 
+(defvar ccide-project-root)
+
 (defconst c-user-prefix-re (regexp-opt c-user-prefixes t))
 
 (defconst ccide-doxy-tag-re 
   (concat "\\\\\\(group\\|defgroup\\|see\\|author\\|version\\|id\\|since"
 	  "\\|returns?\\|throws?\\|exception\\|raises\\|param\\|li\\|brief"
 	  "\\|internal\\|bug\\|fixme\\|todo\\|idea\\|implementation"
-	  "\\|note\\|attention\\|warning\\|par\\)\\b"))
+	  "\\|note\\|attention\\|warning\\|par\\|code\\|endcode"
+	  "\\|post\\|pre\\)\\b"))
 
 (defconst ccide-special-extensions
-  '(".h" ".hh" ".mpp" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci"))
+  '(".h" ".hh" ".mpp" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci" ".dox"))
 
 (defconst ccide-implementation-extensions
   '(".h" ".hh" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci"))
@@ -176,7 +179,6 @@
 		 (goto-char (car (c-literal-limits)))
 		 (looking-at "///<?[ \t\n\r@]"))
 		(t nil))
-		
 	  (progn
 	    (goto-char (match-end 0))
 	    (current-column))))))
@@ -199,12 +201,10 @@
   "Add a comment to this source file."
   (interactive)
   (let ((mode "c++")
-	point)
+	point add-file-vars)
     (push-mark)
     (goto-char (point-min))
-    (insert "// $Id$\n"
-	    "//\n"
-	    "// Copyright (C) " (number-to-string (nth 5 (decode-time)))
+    (insert "// Copyright (C) " (number-to-string (nth 5 (decode-time)))
 	    " " ccide-default-author "\n"
             ccide-default-copyright
             "\n")
@@ -330,6 +330,14 @@
            (insert "\n\n///////////////////////////////cti.e///////////////////////////////////////\n"
 		   "#undef prefix_"))
 
+	  ((string-match "\\.dox$" (buffer-file-name))
+	   (insert "/** \\mainpage\n\n    ")
+	   (setq point (point))
+	   (insert "\n */")
+	   (setq add-file-vars '(( mode . flyspell)
+				 ( mode . auto-fill)
+				 ( ispell-local-dictionary . "american" ))))
+
 	  ((string-match "\\.java$" (buffer-file-name))
 	   (setq mode "jde")
 	   (setq point (point))
@@ -343,6 +351,8 @@
 	    "// Local Variables:\n"
 	    "// mode: " mode "\n")
     (loop for (var . value) in ccide-file-vars
+	  do (insert "// " (symbol-name var) ": " (prin1-to-string value) "\n"))
+    (loop for (var . value) in add-file-vars
 	  do (insert "// " (symbol-name var) ": " (prin1-to-string value) "\n"))
     (insert "// End:\n")
     (if point
@@ -1400,7 +1410,20 @@ instatiations at point."
   (set (make-local-variable 'paragraph-start) (concat "[ \t\f]*$\\|[ \t\f]*" ccide-doxy-tag-re))
   (set (make-local-variable 'paragraph-separate) "[ \t\f]*$")
   (auto-fill-mode -1)
+  (ccide-project-load-config)
   (ccide-auto-decorate-new-files))
+
+(defun ccide-project-load-config ()
+  (let ((dir (buffer-file-name))
+	last-dir conf)
+    (while (and (not (string= (setq last-dir dir 
+				    dir (directory-file-name (file-name-directory dir))) last-dir))
+		(setq conf (expand-file-name "project.el" dir))
+		(not (file-readable-p conf))))
+    (if (file-readable-p conf)
+	(progn
+	  (set (make-local-variable 'ccide-project-root) dir)
+	  (load-file conf)))))
 
 (add-hook 'c-mode-hook 'ccide-install-it)
 (add-hook 'c++-mode-hook 'ccide-install-it)

@@ -1414,16 +1414,21 @@ instatiations at point."
   (ccide-auto-decorate-new-files))
 
 (defun ccide-project-load-config ()
-  (let ((dir (buffer-file-name))
-	last-dir conf)
+  (let ((conf (ccide-project-search-upwards "project.el" (file-name-directory (buffer-file-name)))))
+    (when conf
+      (set (make-local-variable 'ccide-project-root) (file-name-directory conf))
+      (load-file conf))))
+
+(defun ccide-project-search-upwards (file &optional dir)
+  "Search for FILE in all directories starting at DIR and going up the directory hierarchy.
+DIR defaults to ccide-project-root"
+  (let (conf last-dir)
+    (setq dir (expand-file-name "x" (or dir ccide-project-root)))
     (while (and (not (string= (setq last-dir dir 
 				    dir (directory-file-name (file-name-directory dir))) last-dir))
-		(setq conf (expand-file-name "project.el" dir))
+		(setq conf (expand-file-name file dir))
 		(not (file-readable-p conf))))
-    (if (file-readable-p conf)
-	(progn
-	  (set (make-local-variable 'ccide-project-root) dir)
-	  (load-file conf)))))
+    (and (file-readable-p conf) conf)))
 
 (add-hook 'c-mode-hook 'ccide-install-it)
 (add-hook 'c++-mode-hook 'ccide-install-it)

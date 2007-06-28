@@ -802,6 +802,8 @@ it will be prefixed with the current class prefix."
 	       (< (point) (aref parse 2))
 	       (not (looking-at (regexp-quote prefix))))
 	  (let ((pos (string-match "<" prefix)))
+	    (if pos
+		(insert "typename "))
 	    (if (and pos (looking-at (concat (substring prefix 0 pos)
 					     "\\b[^_]")))
 		(progn

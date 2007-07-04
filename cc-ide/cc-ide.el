@@ -932,6 +932,7 @@ declaration at the top of the kill ring."
 	 (name (c-defun-short-name state))
 	 (scoped-name (c-defun-full-name state))
 	 (args (ccide-implementation-args state))
+	 (targs (ccide-implementation-template-args state))
          rv fallback)
 
     (loop for ext in ccide-implementation-extensions
@@ -944,7 +945,8 @@ declaration at the top of the kill ring."
                  (when buf
                    (let ((found (save-excursion
                                   (set-buffer buf)
-                                  (ccide-find-implementation-1 name scoped-name args
+                                  (ccide-find-implementation-1 name scoped-name args targs
+							       (not (aref state 6))
                                                                (car (aref state 2))))))
                      (if found
                          (if (cdr found)
@@ -978,21 +980,41 @@ declaration at the top of the kill ring."
 		  
 		  t))
 
-(defun ccide-find-implementation-1 (name scoped-name args skip-def)
+(defun ccide-implementation-template-args (state)
+  (and (aref state 0)
+       (string-replace "[ \t\n\r]+" ""
+		       (loop for (start . end) in   (save-excursion
+						      (goto-char (caar (last (aref state 0))))
+						      (c-parse-template-declaration))
+			     for sep = "" then ","
+			     concat sep
+			     concat (buffer-substring-no-properties 
+				     start (save-excursion
+					     (goto-char start)
+					     (if (search-forward "=" end 'move) (forward-char -1))
+					     (point))))
+		       t)))
+
+(defun ccide-find-implementation-1 (name scoped-name args targs with-body skip-def)
   ;; Within the current buffer, search for all implementations of the
   ;; given function. The rv is a list of conses. The car holds the
   ;; buffer position of the implementation, the cdr is t if the name,
   ;; scoped-name and args are matched, otherwise the args did not match.
   (save-excursion
     (goto-char (point-min))
-    (let (fallback rv check-state)
-      (while (and (not rv) (search-forward name nil t))
+    (let ((re (concat (if (eq (char-syntax (aref name 0)) ?w) "\\<" "")
+		      name
+		      (if (eq (char-syntax (aref name (1- (length name)))) ?w) "\\>" "")))
+	  fallback rv check-state)
+      (while (and (not rv) (re-search-forward re nil t))
         (if (and (c-at-toplevel-p) 
                  (not (c-in-literal))
                  (setq check-state (condition-case nil (c-get-defun-state) (error nil)))
                  (not (= (car (aref check-state 2)) skip-def)))
             (if (string= scoped-name (c-defun-full-name check-state))
-                (if (string= args (ccide-implementation-args check-state))
+                (if (and (if with-body (aref check-state 6) (not (aref check-state 6)))
+		         (string= args (ccide-implementation-args check-state))
+			 (string= targs (ccide-implementation-template-args check-state)))
                     (setq rv (cons (point) t))
                   (if (not fallback) 
                       (setq fallback (cons (point) nil)))))))

@@ -621,10 +621,10 @@
 	      (c-forward-template-arglist)
 	      (c-forward-syntactic-ws))))
       (setq type (point))
-      (while (not (or (eq (following-char) ?\()
-		      (c-crosses-statement-barrier-p type (point))))
-	(c-forward-balanced-token)
-	(c-forward-syntactic-ws))
+      (while (and (not (or (eq (following-char) ?\()
+			   (c-crosses-statement-barrier-p type (point))))
+		  (let ((point (point)))
+		    (> (progn (c-forward-balanced-token) (c-forward-syntactic-ws) (point)) point))))
       (save-excursion
 	(c-backward-scoped-name)
 	(setq name (point))
@@ -736,7 +736,7 @@
       (goto-char (cdr (aref state 2)))
       (if (and (eq (preceding-char) ?>)
 	       (not (save-excursion
-		      (re-search-forward (concat c-operator-word "\\=") nil t))))
+		      (re-search-backward (concat c-operator-word "\\=") nil t))))
 	  (c-backward-template-arglist))
       (c-backward-syntactic-ws)
       (setq p (point))

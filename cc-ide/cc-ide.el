@@ -1003,7 +1003,7 @@ declaration at the top of the kill ring."
   (save-excursion
     (goto-char (point-min))
     (let ((re (concat (if (eq (char-syntax (aref name 0)) ?w) "\\<" "")
-		      name
+		      (regexp-quote name)
 		      (if (eq (char-syntax (aref name (1- (length name)))) ?w) "\\>" "")))
 	  fallback rv check-state)
       (while (and (not rv) (re-search-forward re nil t))

@@ -86,18 +86,16 @@
       (c-build-template-specs (aref state 0) cbuf)
       (if (aref state 1)
 	  (progn
-	    (insert-buffer-substring cbuf (car (aref state 1)) (cdr (aref state 1)))
+	    (save-excursion
+	      (insert-buffer-substring cbuf (car (aref state 1)) (cdr (aref state 1)))
+	      (insert " "))
 	    (if (not no-kill)
 		(progn
-		  (beginning-of-line)
-		  (c-kill-special-keywords)
-		  (goto-char (point-max))))
-	    (insert " ")))
+		  (c-kill-special-keywords)))))
       (if add-words
 	  (progn
-	    (beginning-of-line)
-	    (insert add-words " ")
-	    (goto-char (point-max))))
+	    (insert add-words " ")))
+      (goto-char (point-max))
       (setq p1 (point))
       (insert prefix)
       (if (> (length prefix) 0)

@@ -88,6 +88,8 @@
 
     ("ci"  ccide-class-impl-comment           "Generate class implemenation comment")
 
+    ("ce"  ccide-gen-exception                "Generate an exception class")
+
     (nil   nil				      separator)
     					  
     ;; method level			  
@@ -376,6 +378,39 @@
                              (buffer-file-name))) "\n{}")
           (beginning-of-line)))))
 
+(defun ccide-sync-file-variables ()
+  "Syncronize file variables to the current value of ccide-file-vars"
+  (interactive)
+  (save-excursion
+    (goto-char (point-max))
+    (search-backward "\n\^L" (max (- (point-max) 3000) (point-min)) 'move)
+    (let ((case-fold-search t))
+      (if (search-forward "Local Variables:" nil t)
+	  (let (prefix suffix vars)
+	    (skip-chars-forward " \t")
+	    (or (eolp)
+		(setq suffix (buffer-substring (point) (progn (end-of-line) (point)))))
+	    (goto-char (match-beginning 0))
+	    (or (bolp)
+		(setq prefix (buffer-substring (point) (progn (beginning-of-line) (point)))))
+	    (loop do (progn
+		       (forward-line 1)
+		       (if (and prefix (looking-at prefix))
+			   (goto-char (match-end 0)))
+		       (skip-chars-forward " \t"))
+		  while (not (looking-at "end:"))
+		  do (progn
+		       (setq vars (cons (intern (buffer-substring 
+						 (point) 
+						 (progn (skip-chars-forward "^:\n") (point))))
+					vars))))
+	    (beginning-of-line)
+	    (loop for (var . value) in ccide-file-vars
+		  do (if (not (memq var vars))
+			 (insert (or prefix "")
+				 (symbol-name var) ": " (prin1-to-string value) 
+				 (or suffix "") "\n"))))))))
+
 (defun ccide-syncronize-includes ()
   "Syncronize include's in all other files"
   (interactive)
@@ -609,6 +644,16 @@ copy constructor, assignment operator and destructor."
                       "// protected\n\n"
                       "// private\n\n"))
     (message name)))
+
+(defun ccide-gen-exception (class &optional description)
+  (interactive "sException name: ")
+  (indent-according-to-mode)
+  (let ((in (make-string c-basic-offset ? ))
+	(ofs (make-string (current-indentation) ? ))
+	(prefix (c-get-full-prefix (c-get-block-scope))))
+    (insert "struct " class " : public std::exception\n"
+	    ofs "{ virtual char const * what() const throw() "
+	    "{ return \"" prefix "::" class "\"; } };\n")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; function/method level

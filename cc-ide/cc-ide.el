@@ -31,6 +31,8 @@
 (defvar ccide-default-author "")
 (defvar ccide-default-copyright "")
 
+(defvar ccide-all-includes-guard nil)
+
 (defvar ccide-corba-skel-dir "")
 (defvar ccide-corba-idl-dir "")
 (defvar ccide-corba-idl-command "omniidl2 -w")
@@ -109,7 +111,7 @@
     					  
     ;; variable level			  
     ("vc"  ccide-variable-comment	      "Variable comment")
-    ("vf"  ccide-grab-acces-fn		      "Grab access methods")
+    ("vf"  ccide-grab-access-fn		      "Grab access methods")
     (nil   nil				      separator)
 
     ;; documentation
@@ -221,8 +223,12 @@
                    "///////////////////////////////hh.p////////////////////////////////////////\n\n")
 	   (setq point (point))
 	   (goto-char (point-max))
-	   (insert "\n\n///////////////////////////////hh.e////////////////////////////////////////\n"
-		   "//#include \"" (ccide-file-name ".cci") "\"\n"
+	   (insert "\n\n///////////////////////////////hh.e////////////////////////////////////////\n")
+	   (if ccide-all-includes-guard
+	       (insert "#endif\n"
+		       "#if !defined(" ccide-all-includes-guard ") && !defined(" (ccide-file-macro-name) "i_)\n"
+		       "#define " (ccide-file-macro-name) "i_\n"))
+	   (insert "//#include \"" (ccide-file-name ".cci") "\"\n"
 		   "//#include \"" (ccide-file-name ".ct") "\"\n"
 		   "//#include \"" (ccide-file-name ".cti") "\"\n"
 		   "#endif"))
@@ -337,8 +343,7 @@
 	   (setq point (point))
 	   (insert "\n */")
 	   (setq add-file-vars '(( mode . flyspell)
-				 ( mode . auto-fill)
-				 ( ispell-local-dictionary . "american" ))))
+				 ( mode . auto-fill))))
 
 	  ((string-match "\\.java$" (buffer-file-name))
 	   (setq mode "jde")
@@ -469,10 +474,9 @@
 	    (search-backward "/**" nil t)
 	    (forward-char 4))
 	(let ((indent (make-string (current-indentation) ? )))
-	  (insert "/** ")
+	  (insert "/** \\brief  ")
 	  (save-excursion
 	    (insert "\n"
-		    indent "    @short \n"
 		    indent " */\n"
 		    indent)))))))
 
@@ -647,65 +651,86 @@ copy constructor, assignment operator and destructor."
 
 (defun ccide-gen-exception (class &optional description)
   (interactive "sException name: ")
+  (beginning-of-line)
+  (open-line 1)
   (indent-according-to-mode)
-  (let ((in (make-string c-basic-offset ? ))
-	(ofs (make-string (current-indentation) ? ))
-	(prefix (c-get-full-prefix (c-get-block-scope))))
-    (insert "struct " class " : public std::exception\n"
-	    ofs "{ virtual char const * what() const throw() "
-	    "{ return \"" prefix "::" class "\"; } };\n")))
+  (save-excursion
+    (let ((in (make-string c-basic-offset ? ))
+	  (ofs (make-string (current-indentation) ? ))
+	  (prefix (c-get-full-prefix (c-get-block-scope)))
+	  p)
+      (insert "struct " class " : public std::exception\n"
+	      ofs "{ virtual char const * what() const throw() ")
+      (setq p (point))
+      (insert "{ return \"" prefix "::" class "\"; } };")
+      (if (> (current-column) fill-column)
+	  (save-excursion
+	    (goto-char p)
+	    (insert "\n" ofs in in))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; function/method level
 
 (defun ccide-function-comment ()
-  "Add comment to start of current function"
+  "Add comment for current function"
   (interactive)
-  (c-forward-out-of-comment)
+  (if (c-in-literal)
+      ; Assume, we are in the functions comment ...
+      (progn
+	(c-forward-out-of-comment)
+	(c-backward-syntactic-ws)
+	(c-backward-sexp)))
   (let ((defun (c-get-defun-state))
-	place indent)
-    (c-goto-beginning-of-defun defun)
-    (setq indent (make-string (current-indentation) ? ))
-    (if (save-excursion
-	  (forward-line -1)
-	  (ccide-in-doxy-comment))
-	()
-      (insert "/** ")
+	(indent (make-string comment-column ? ))
+	place)
+    (goto-char (or (aref defun 7) (car (aref defun 6))))
+    (c-backward-syntactic-ws)
+    (if (looking-at "[ \t\n\r]*///<")
+	(progn
+	  (delete-region (point) (progn (skip-chars-forward " \t\n\r") (point)))
+	  (if (> (current-column) comment-column)
+	      (insert "\n"))
+	  (indent-to-column comment-column)
+	  (search-forward "*/")
+	  (forward-char -2))
+      (if (> (current-column) comment-column)
+	  (insert "\n"))
+      (indent-to-column comment-column)
+      (insert "///< ")
       (setq place (point))
-      (insert "\n\n" 
-	      indent "    @li @em PRE : \n"
-	      indent "    @li @em POST : \n\n"
-	      indent "    @short \n"
-	      indent " */\n" indent)
-      (setq defun (c-get-defun-state)))
-    (ccide-function-comment-adjust defun indent)
+      (insert "\n" 
+	      indent "/**< ")
+      (insert             "\\pre \n"
+			  indent "     \\post */")
+      (save-excursion
+	(goto-char (car (aref defun 2)))
+	(setq defun (c-get-defun-state)))
+      (forward-char -2))
+    (ccide-function-comment-adjust defun (concat indent "     "))
     (if place (goto-char place))))
 
 (defun ccide-function-comment-grab-args ()
   (let ((limit (save-excursion
 		 (search-backward "/**" nil t)
 		 (point)))
-	(end (progn (forward-line -1) (point)))
+	(end  (point))
 	begin start args argend)
-    (if (search-backward "@throws" limit t)
-	(setq argend (progn (beginning-of-line) (point)))
-      (setq argend end))
-    (while (or (search-backward "@param" limit t)
-	       (search-backward "@return" limit t)))
+    (setq argend end)
+    (while (or (search-backward "\\param" limit t)
+	       (search-backward "\\return" limit t)))
     (beginning-of-line)
     (setq start (point))
     (setq begin start)
-    (while (search-forward "@param" argend t)
-      (or (search-forward "@param" argend t)
-	  (search-forward "@return" argend t)
-	  (search-forward "@throws" argend t)
+    (while (search-forward "\\param" argend t)
+      (or (search-forward "\\param" argend t)
+	  (search-forward "\\return" argend t)
 	  (goto-char argend))
       (beginning-of-line)
       (setq args (cons (ccide-function-comment-parse-arg start (point))
 		       args))
       (setq start (point)))
     (prog1
-	(if (not (search-forward "@return" argend t))
+	(if (not (search-forward "\return" argend t))
 	    (cons nil args)
 	  (beginning-of-line)
 	  (cons (buffer-substring (point) argend) args))
@@ -714,10 +739,10 @@ copy constructor, assignment operator and destructor."
 (defun ccide-function-comment-parse-arg (start end)
   (save-excursion
     (goto-char start)
-    (re-search-forward "@param\\s-*\\(\\S-*\\)" end t)
-    (cons (match-string 1) 
-	  (cons (buffer-substring start (match-beginning 1))
-		(buffer-substring (match-end 1) end)))))
+    (re-search-forward "\\param\\(\\[[^]*\\]\\)?\\s-*\\(\\S-*\\)" end t)
+    (cons (match-string 2) 
+	  (cons (buffer-substring start (match-beginning 2))
+		(buffer-substring (match-end 2) end)))))
   
 (defun ccide-function-comment-get-throws (defun)
   (if (aref defun 4)
@@ -730,6 +755,7 @@ copy constructor, assignment operator and destructor."
 		  spec))))))
 
 (defun ccide-function-comment-adjust (defun indent)
+  (insert "\n")
   (let* ((defargs (mapcar (function (lambda (x)
 				      (c-get-template-argument-name (car x) (cdr x))))
 			  (aref defun 3)))
@@ -746,11 +772,6 @@ copy constructor, assignment operator and destructor."
 	 (def-in-doc (loop for defarg in defargs always (assoc defarg docargs)))
 	 (doc-in-def (loop for docarg in docargs always (member (car docarg) defargs)))
 	 (size-eq (= (length defargs) (length docargs))))
-    (if (or defargs defret throws)
-	(if (not (save-excursion 
-		   (forward-line -1)
-		   (looking-at "\\s-*$")))
-	    (insert "\n")))
     ;; We differentiate four types changes
     ;;  - new arguments
     ;;  - removed arguments
@@ -759,33 +780,34 @@ copy constructor, assignment operator and destructor."
     ;; 
     ;; If the change cannot be described by one of the above, it has
     ;; to be resolved manually
-    (save-excursion
-      (cond (doc-in-def
-	     ;; reordered arguments or new arguments (or no change)
-	     (loop for defarg in defargs
-		   for docarg = (assoc defarg docargs)
-		   do (if docarg
-			  (insert (cadr docarg) (car docarg) (cddr docarg))
-			(insert indent "    @param " defarg " \n"))))
-	    (size-eq ; and (not doc-in-def)
-	     ;; renamed arguments
-	     (loop for defarg in defargs
-		   for docarg in docargs
-		   do (insert (cadr docarg) defarg (cddr docarg))))
-	    (def-in-doc
-	      ;; removed arguments
-	      (loop for defarg in defargs
-		    for docarg = (assoc defarg docargs)
-		    do (insert (cadr docarg) (car docarg) (cddr docarg))))
-	    (t (error "Arg change too complex. Resolve manualy.")))
-      ;; return value is simple
-      (if defret
-	  (if docret
-	      (insert docret)
-	    (insert indent "    @return \n")))
-      (if throws
-	  (insert indent "    @throws " throws "\n")))
-    (back-to-indentation)))
+    (if throws
+	(insert indent "\\throws " throws "\n"))
+    (cond (doc-in-def
+	   ;; reordered arguments or new arguments (or no change)
+	   (loop for defarg in defargs
+		 for docarg = (assoc defarg docargs)
+		 do (if docarg
+			(insert (cadr docarg) (car docarg) (cddr docarg))
+		      (insert indent "\\param " defarg " \n"))))
+	  (size-eq ; and (not doc-in-def)
+	   ;; renamed arguments
+	   (loop for defarg in defargs
+		 for docarg in docargs
+		 do (insert (cadr docarg) defarg (cddr docarg))))
+	  (def-in-doc
+	    ;; removed arguments
+	    (loop for defarg in defargs
+		  for docarg = (assoc defarg docargs)
+		  do (insert (cadr docarg) (car docarg) (cddr docarg))))
+	  (t (error "Arg change too complex. Resolve manualy.")))
+    ;; return value is simple
+    (if defret
+	(if docret
+	    (insert docret)
+	  (insert indent "\\return \n"))))
+  (delete-char -1)
+  (delete-horizontal-space)
+  (insert " "))
 
 (defun ccide-grab-prototype (&optional prefix)
   "Grab prototype of function defined or declared at point. Prefix
@@ -938,38 +960,6 @@ declaration at the top of the kill ring."
 		     (if prfx " " "")
 		     (car defn)))))
 
-;; (defun ccide-find-implementation (&optional other-window)
-;;   "Find implementation of method declared at point."
-;;   (interactive "P")
-;;   (let ((def (c-build-defun))
-;; 	match pos)
-;;     (setq match (concat (regexp-quote (car def)) "[ \t\n\r]*("))
-;;     (setq match (string-replace "::" "::[ \t\n\r]*" match t nil t t))
-;;     (message match)
-;;     (loop for ext in ccide-implementation-extensions
-;; 	  do (let* ((filename (ccide-file-name ext))
-;; 		    (buf (and (file-readable-p filename) (find-file-noselect filename))))
-;; 	       (if buf
-;; 		   (save-excursion
-;; 		     (set-buffer buf)
-;; 		     (goto-char (point-min))
-;; 		     (if (loop while (search-forward-regexp match nil t)
-;; 			       do (forward-char -1)
-;; 			       thereis (c-at-toplevel-p))
-;; 			 (setq pos (cons buf (point)))))))
-;; 	  until pos)
-;;     (if pos
-;; 	(let ((win (get-buffer-window (car pos))))
-;;           (if win
-;;               (select-window win)
-;;             (if other-window
-;;                 (switch-to-buffer-other-window (car pos))
-;;               (switch-to-buffer (car pos))))
-;; 	  (goto-char (cdr pos))
-;; 	  (forward-char -1)
-;; 	  (c-beginning-of-defun-or-decl))
-;;       (message (concat "Implementation of " (car def) " not found.")))))
-
 (defun ccide-find-implementation (&optional other-window)
   "Find implementation of method declared at point."
   (interactive "P")
@@ -1071,11 +1061,16 @@ declaration at the top of the kill ring."
 (defun ccide-variable-comment ()
   "Add a comment to current variable declaration."
   (interactive)
-  (push-mark)
-  (beginning-of-line)
-  (open-line 1)
-  (insert "/// ")
-  (indent-according-to-mode))
+  (c-forward-out-of-comment)
+  (c-forward-syntactic-ws)
+  (while (not (looking-at ";"))
+    (c-forward-sexp)
+    (c-forward-syntactic-ws))
+  (forward-char 1)
+  (if (> (current-column) comment-column)
+      (insert "\n" (make-string comment-column ? ) "///< ")
+    (indent-to-column comment-column)
+    (insert "///< ")))
 
 (defun ccide-grab-access-fn ()
   (interactive)
@@ -1084,38 +1079,32 @@ declaration at the top of the kill ring."
     (if (looking-at (concat c++-simple-type-regexp "[ \t\n\r][a-zA-Z0-9_]+[ \t\n\r]*;"))
 	(let ((vardef (match-string 0))
 	      (in (make-string c-basic-offset ? ))
-	      type varname ws doc)
+	      type reftype varname fnname argname ws)
 	  (forward-line -1)
 	  (back-to-indentation)
-	  (if (looking-at "///[ \t\n\r]*")
-	      (setq doc (buffer-substring (match-end 0)
-					  (progn (end-of-line) (point)))))
 	  (string-match "^[ \t\n\r]*\\(.*\\)[ \t\n\r]\\([a-zA-Z0-9_]+\\)[ \t\n\r]*;$"
 			vardef)
 	  (setq varname (match-string 2 vardef)
 		type (match-string 1 vardef)
 		ws (substring vardef 0 (match-beginning 1)))
+	  (if (string-match "_$" varname)
+	      (setq fnname (string-replace "_$" "" varname)
+		    argname (concat "a_" fnname))
+	    (setq fnname (concat "q_" varname)
+		  argname (concat "a_" varname)))
 	  (if (string-match "^[ \t\n\r]*" type)
 	      (setq type (substring type (match-end 0))))
-	  (kill-new (concat (if doc
-				(concat ws "/** Setze " doc ".\n\n"
-					ws "    @param _" varname " neu: " doc "\n"
-					ws "    @return alt: " doc "\n"
-					ws " */\n")
-			      "")
-			    ws type " q_" varname "(" type " _" varname ")\n"
+	  (if (string-match "^[A-Z]" type)
+	      (setq reftype (concat type " const &"))
+	    (setq reftype type))
+	  (kill-new (concat ws type " " fnname "(" reftype " " argname ")\n"
 			    ws in "{\n"
 			    ws in in type " old" varname " = " varname ";\n"
-			    ws in in varname " = _" varname ";\n"
-			    ws in in "return(old" varname ");\n"
+			    ws in in varname " = " argname ";\n"
+			    ws in in "return old" varname ";\n"
 			    ws in "}\n\n"
-			    (if doc
-				(concat ws "/** Hole " doc ".\n\n"
-					ws "    @return " doc "\n"
-					ws "*/\n")
-			      "")
-			    ws type " q_" varname "(void) const\n"
-			    ws in "{ return(" varname "); }\n"))
+			    ws reftype " " fnname "() const\n"
+			    ws in "{ return " varname "; }\n"))
 	  
 	  (message varname))
       (message "No variable found"))))
@@ -1187,8 +1176,6 @@ declaration at the top of the kill ring."
             if (eq (overlay-get overlay 'invisible) 'hs)
             do (delete-overlay overlay))))
   (message "Done."))
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CORBA support (omniORB2)
@@ -1480,6 +1467,7 @@ instatiations at point."
   (set (make-local-variable 'paragraph-separate) "[ \t\f]*$")
   (auto-fill-mode -1)
   (ccide-project-load-config)
+  (ccide-directory-load-config)
   (ccide-auto-decorate-new-files))
 
 (defun ccide-project-load-config ()
@@ -1498,6 +1486,10 @@ DIR defaults to ccide-project-root"
 		(setq conf (expand-file-name file dir))
 		(not (file-readable-p conf))))
     (and (file-readable-p conf) conf)))
+
+(defun ccide-directory-load-config ()
+  (if (file-readable-p ".dir.el")
+      (load-file ".dir.el")))
 
 (add-hook 'c-mode-hook 'ccide-install-it)
 (add-hook 'c++-mode-hook 'ccide-install-it)

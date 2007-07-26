@@ -310,6 +310,10 @@
     (and new-point brace-point)))
 
 (defun c-beginning-of-defun-or-decl ()
+  (if (c-in-literal)
+      (goto-char (car (c-literal-limits))))
+  (while (and (not (c-at-toplevel-p))
+	      (c-save-uplist -1)))
   (c-move-to-start-of-defun)
   (let ((point (point)) beg)
     (c-beginning-of-statement-1)

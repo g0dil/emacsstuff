@@ -674,12 +674,13 @@ copy constructor, assignment operator and destructor."
 (defun ccide-function-comment ()
   "Add comment for current function"
   (interactive)
-  (if (c-in-literal)
+  (if (memq (c-in-literal) '(c c++))
       ; Assume, we are in the functions comment ...
       (progn
 	(c-forward-out-of-comment)
 	(c-backward-syntactic-ws)
 	(c-backward-sexp)))
+  (c-beginning-of-defun-or-decl)
   (let ((defun (c-get-defun-state))
 	(indent (make-string comment-column ? ))
 	place)
@@ -739,7 +740,7 @@ copy constructor, assignment operator and destructor."
 (defun ccide-function-comment-parse-arg (start end)
   (save-excursion
     (goto-char start)
-    (re-search-forward "\\param\\(\\[[^]*\\]\\)?\\s-*\\(\\S-*\\)" end t)
+    (re-search-forward "\\\\param\\(\\[[^]]*\\]\\)?\\s-*\\(\\S-*\\)" end t)
     (cons (match-string 2) 
 	  (cons (buffer-substring start (match-beginning 2))
 		(buffer-substring (match-end 2) end)))))
@@ -813,13 +814,15 @@ copy constructor, assignment operator and destructor."
   "Grab prototype of function defined or declared at point. Prefix
 arg, if given, specifies the kind of prefix (inline, static, ...) to use."
   (interactive "P")
-  (let* ((prfx (or (and prefix (nth (prefix-numeric-value prefix) c-user-prefixes))
-		   ccide-default-prefix))
-	 (defn (c-build-defun prfx)))
-    (kill-new (concat (cadr defn) "\n{}\n"))
-    (message (concat (or prfx "")
-		     (if prfx " " "")
-		     (car defn)))))
+  (save-excursion
+    (c-beginning-of-defun-or-decl)
+    (let* ((prfx (or (and prefix (nth (prefix-numeric-value prefix) c-user-prefixes))
+		     ccide-default-prefix))
+	   (defn (c-build-defun prfx)))
+      (kill-new (concat (cadr defn) "\n{}\n"))
+      (message (concat (or prfx "")
+		       (if prfx " " "")
+		       (car defn))))))
 
 (defun ccide-reformat-defun ()
   "Reformat the defn of the current defun."
@@ -845,7 +848,8 @@ ring (presumably placed there using c++-grab-prototype)."
 			 (aref parse 1)
 			 (aref parse 2))
 		     (or (aref parse 5)
-			 (aref parse 6)))
+			 (aref parse 6)
+			 (aref parse 7)))
       (yank)
       (delete-char -3))))
 

@@ -31,7 +31,10 @@
 (defvar ccide-default-author "")
 (defvar ccide-default-copyright "")
 
-(defvar ccide-all-includes-guard nil)
+(defvar ccide-all-includes nil
+  "*If non-nil, this is the name of a file to include to fetch all
+includes of a project. This is used if single include files cannot be
+correctly included.")
 
 (defvar ccide-corba-skel-dir "")
 (defvar ccide-corba-idl-dir "")
@@ -208,7 +211,9 @@
 	point add-file-vars)
     (push-mark)
     (goto-char (point-min))
-    (insert "// Copyright (C) " (number-to-string (nth 5 (decode-time)))
+    (insert "// $Id$\n"
+	    "//\n"
+	    "// Copyright (C) " (number-to-string (nth 5 (decode-time)))
 	    " " ccide-default-author "\n"
             ccide-default-copyright
             "\n")
@@ -217,16 +222,22 @@
 	   (insert "/** \\file\n"
 		   "    \\brief " (ccide-file-name) " public header */\n\n"
 		   "#ifndef " (ccide-file-macro-name) "\n"
-		   "#define " (ccide-file-macro-name) " 1\n\n"
-                   "// Custom includes\n\n"
+		   "#define " (ccide-file-macro-name) " 1\n\n")
+	   (if ccide-all-includes
+	       (insert "#ifndef " (ccide-file-macro-name ccide-all-includes) "\n"
+		       "#error \"Don't include '" (file-name-nondirectory (buffer-file-name)) "'"
+		       " directly, include '" ccide-all-includes "'\"\n"
+		       "#endif\n\n"))
+	   (insert "// Custom includes\n\n"
                    "//#include \"" (ccide-file-name ".mpp") "\"\n"
                    "///////////////////////////////hh.p////////////////////////////////////////\n\n")
 	   (setq point (point))
 	   (goto-char (point-max))
 	   (insert "\n\n///////////////////////////////hh.e////////////////////////////////////////\n")
-	   (if ccide-all-includes-guard
+	   (if ccide-all-includes
 	       (insert "#endif\n"
-		       "#if !defined(" ccide-all-includes-guard ") && !defined(" (ccide-file-macro-name) "i_)\n"
+		       "#if !defined(" (ccide-file-macro-name ccide-all-includes) "_decls_) "
+		       "&& !defined(" (ccide-file-macro-name) "i_)\n"
 		       "#define " (ccide-file-macro-name) "i_\n"))
 	   (insert "//#include \"" (ccide-file-name ".cci") "\"\n"
 		   "//#include \"" (ccide-file-name ".ct") "\"\n"
@@ -277,7 +288,8 @@
 		   "//#include \"" (ccide-file-name ".hh") "\"\n"
 		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n"
-                   "#include \"" (ccide-file-name ".hh" (ccide-file-name)) "\"\n\n"
+                   "#include \"" (or ccide-all-includes 
+				     (ccide-file-name ".hh" (ccide-file-name))) "\"\n\n"
                    "#include <boost/test/auto_unit_test.hpp>\n"
                    "#include <boost/test/test_tools.hpp>\n\n"
 		   "#define prefix_\n"
@@ -291,7 +303,8 @@
 	       (string-match "\\.cpp$" (buffer-file-name)))
 	   (insert "/** \\file\n"
 		   "    \\brief " (ccide-file-name) " non-inline non-template implementation */\n\n"
-		   "//#include \"" (ccide-file-name ".hh") "\"\n"
+		   (if ccide-all-includes "" "//")
+		   "#include \"" (or ccide-all-includes (ccide-file-name ".hh")) "\"\n"
 		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n\n"
                    "//#include \"" (ccide-file-name ".mpp") "\"\n"
@@ -650,7 +663,7 @@ copy constructor, assignment operator and destructor."
     (message name)))
 
 (defun ccide-gen-exception (class &optional description)
-  (interactive "sException name: ")
+  (interactive "sException name: \nsDescription (defaults to full class name): ")
   (beginning-of-line)
   (open-line 1)
   (indent-according-to-mode)
@@ -662,7 +675,11 @@ copy constructor, assignment operator and destructor."
       (insert "struct " class " : public std::exception\n"
 	      ofs "{ virtual char const * what() const throw() ")
       (setq p (point))
-      (insert "{ return \"" prefix "::" class "\"; } };")
+      (insert "{ return \"" 
+	      (if (and description (> (length description) 0))
+		  description
+		(concat prefix "::" class))
+	      "\"; } };")
       (if (> (current-column) fill-column)
 	  (save-excursion
 	    (goto-char p)
@@ -679,7 +696,8 @@ copy constructor, assignment operator and destructor."
       (progn
 	(c-forward-out-of-comment)
 	(c-backward-syntactic-ws)
-	(c-backward-sexp)))
+	(c-backward-sexp))
+    (beginning-of-line))
   (c-beginning-of-defun-or-decl)
   (let ((defun (c-get-defun-state))
 	(indent (make-string comment-column ? ))

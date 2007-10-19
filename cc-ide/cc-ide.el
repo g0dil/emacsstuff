@@ -319,6 +319,7 @@ correctly included.")
 	  ((string-match "\\.cci$" (buffer-file-name))
 	   (insert "/** \\file\n"
 		   "    \\brief " (ccide-file-name) " inline non-template implementation */\n\n"
+		   "//#include \"" (ccide-file-name ".ih") "\"\n\n"
                    "// Custom includes\n\n"
 		   "#define prefix_ inline\n"
                    "///////////////////////////////cci.p///////////////////////////////////////\n\n")

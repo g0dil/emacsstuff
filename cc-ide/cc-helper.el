@@ -51,21 +51,23 @@
 	      (set-buffer cbuf)
 	      (save-excursion
 		(goto-char (car template))
-		(concat "template <"
-			(loop for arg in (c-parse-template-declaration)
-			      for sep = "" then ", "
-			      concat sep
-			      concat (progn
-				       (buffer-substring-no-properties
-					(car arg) (if (c-move-to-initializer 
-						       (car arg) (cdr arg))
-						      (progn 
-							(forward-char -1)
-							(c-backward-syntactic-ws)
-							(point))
-						    (cdr arg)))))
-			">"))))
-	do (insert "\n")))
+		(let ((args (c-parse-template-declaration)))
+		  (if args
+		      (concat "template <"
+			      (loop for arg in args
+				    for sep = "" then ", "
+				    concat sep
+				    concat (progn
+					     (buffer-substring-no-properties
+					      (car arg) (if (c-move-to-initializer 
+							     (car arg) (cdr arg))
+							    (progn 
+							      (forward-char -1)
+							      (c-backward-syntactic-ws)
+							      (point))
+							  (cdr arg)))))
+			      ">\n")
+		    "")))))))
 
 (defun c-build-defun (&optional add-words no-kill)
   ;; build a function definition header for the current defun. if

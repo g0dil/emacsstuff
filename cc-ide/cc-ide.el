@@ -58,7 +58,7 @@ correctly included.")
 	  "\\|returns?\\|throws?\\|exception\\|raises\\|param\\|li\\|brief"
 	  "\\|internal\\|bug\\|fixme\\|todo\\|idea\\|implementation"
 	  "\\|note\\|attention\\|warning\\|par\\|code\\|endcode"
-	  "\\|post\\|pre\\)\\b"))
+	  "\\|post\\|pre\\|deprecated\\)\\b"))
 
 (defconst ccide-special-extensions
   '(".h" ".hh" ".mpp" ".ih" ".cc" ".cpp" ".ct" ".cti" ".cci" ".dox"))

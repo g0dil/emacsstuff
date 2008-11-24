@@ -31,6 +31,8 @@
 (defvar ccide-default-author "")
 (defvar ccide-default-copyright "")
 
+(defvar ccide-project-name nil)
+
 (defvar ccide-all-includes nil
   "*If non-nil, this is the name of a file to include to fetch all
 includes of a project. This is used if single include files cannot be
@@ -50,6 +52,8 @@ correctly included.")
   "*If non-nil, generate throw_ specs")
 
 (defvar ccide-project-root)
+
+(defvar ccide-new-file-hook)
 
 (defconst c-user-prefix-re (regexp-opt c-user-prefixes t))
 
@@ -162,6 +166,14 @@ correctly included.")
 (defun ccide-file-macro-name (&optional file-name)
   (concat (upcase (file-name-extension (or file-name (buffer-file-name))))
           "_" 
+	  (if ccide-project-name (concat ccide-project-name "_") "")
+	  (if ccide-project-root
+	      (string-replace "/" "_" 
+			      (substring (file-name-directory 
+					  (expand-file-name (or file-name buffer-file-name)))
+					 (length ccide-project-root))
+			      t)
+	    "")
           (string-replace "\\." "_" (file-name-sans-extension 
                                      (file-name-nondirectory 
                                       (or file-name (buffer-file-name))))
@@ -395,7 +407,8 @@ correctly included.")
           (insert "class " (file-name-sans-extension
                             (file-name-nondirectory 
                              (buffer-file-name))) "\n{}")
-          (beginning-of-line)))))
+          (beginning-of-line))))
+  (run-hooks 'ccide-new-file-hooks))
 
 (defun ccide-sync-file-variables ()
   "Syncronize file variables to the current value of ccide-file-vars"

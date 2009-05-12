@@ -318,7 +318,7 @@
   (let ((point (point)) beg)
     (c-beginning-of-statement-1)
     (setq beg (point))
-    (c-end-of-statement-1)
+    (c-end-of-statement)
     (if (> (point) point)
 	(goto-char beg)
       (goto-char point))
@@ -347,7 +347,7 @@
     (while (and (< (point) point)
 		(or (c-crosses-statement-barrier-p (point) point)
 		    (not (equal (c-parse-state) state))))
-      (c-end-of-statement-1))
+      (c-end-of-statement))
     (c-forward-syntactic-ws)
     (while (looking-at c-any-key)
       (if (looking-at c-blocking-key)
@@ -649,7 +649,7 @@
 	  (progn
 	    (setq initializers (point))
 	    (while (not (or (memq (following-char) '(?{ ?\;))
-			    (c-crosses-statement-barrier-p modifiers (point))))
+			    (c-crosses-statement-barrier-p initializers (point))))
 	      (c-forward-extended-sexp)
 	      (c-forward-syntactic-ws))))
       (if (eq (following-char) ?{)
@@ -797,7 +797,7 @@
 	  (c-forward-sexp)
 	  (setq end (point)))
 	(forward-char 1)
-	(while (progn (c-end-of-statement-1)
+	(while (progn (c-end-of-statement)
 		      (< (point) end))
 	  (let ((bc (char-before))
 		(this (point)))
@@ -840,7 +840,7 @@
 							    members)))
 				  (save-excursion
 				    (goto-char this)
-				    (c-end-of-statement-1)
+				    (c-end-of-statement)
 				    (setq this (point)))
 				  (setq members (cons (cons (if decl 'combo 'variable)
 							    beg)
@@ -877,7 +877,7 @@
   ;; return list of names of all variables of CLASS
   (save-excursion
     (loop for (type . pos) in (aref class 4)
-	  for end = (progn (goto-char pos) (c-end-of-statement-1) (1- (point)))
+	  for end = (progn (goto-char pos) (c-end-of-statement) (1- (point)))
 	  if (or (eq type 'variable) (eq type 'combo))
 	    collect (c-get-template-argument-name pos end))))
 
@@ -885,7 +885,7 @@
   ;; return list of conses of (name . type) of all variables of CLASS
   (save-excursion
     (loop for (type . pos) in (aref class 4)
-	  for end = (progn (goto-char pos) (c-end-of-statement-1) (1- (point)))
+	  for end = (progn (goto-char pos) (c-end-of-statement) (1- (point)))
 	  if (eq type 'variable)
 	    collect (c-get-variable-with-type pos end))))
 

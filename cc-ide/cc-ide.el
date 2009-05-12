@@ -478,7 +478,7 @@ correctly included.")
 				  (forward-line 1))))))))))
 
 (defun ccide-auto-decorate-new-files ()
-  (if (= (point-min) (point-max))
+  (if (and (buffer-file-name) (= (point-min) (point-max)))
       (let ((status (buffer-modified-p)))
 	(ccide-file-comment)
 	(set-buffer-modified-p status))))
@@ -1507,10 +1507,11 @@ instatiations at point."
   (ccide-auto-decorate-new-files))
 
 (defun ccide-project-load-config ()
-  (let ((conf (ccide-project-search-upwards "project.el" (file-name-directory (buffer-file-name)))))
-    (when conf
-      (set (make-local-variable 'ccide-project-root) (file-name-directory conf))
-      (load-file conf))))
+  (if (buffer-file-name)
+      (let ((conf (ccide-project-search-upwards "project.el" (file-name-directory (buffer-file-name)))))
+	(when conf
+	  (set (make-local-variable 'ccide-project-root) (file-name-directory conf))
+	  (load-file conf)))))
 
 (defun ccide-project-search-upwards (file &optional dir)
   "Search for FILE in all directories starting at DIR and going up the directory hierarchy.

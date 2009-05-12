@@ -85,6 +85,7 @@
 	   p1 p2 p3 c maxc fname)
       (set-buffer tbuf)
       (erase-buffer)
+      (c++-mode)
       (c-build-template-specs (aref state 0) cbuf)
       (if (aref state 1)
 	  (progn

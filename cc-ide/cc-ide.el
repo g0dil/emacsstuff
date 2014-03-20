@@ -94,6 +94,7 @@ correctly included.")
     ("csm" ccide-set-class-defaults-my        "Set class defaults comment" "My")
 
     ("cS"  ccide-gen-struct-constructors      "Generate structure constructors")
+    ("c<"  ccide-gen-struct-compare           "Generate structure compare operators")
 
     ("ci"  ccide-class-impl-comment           "Generate class implemenation comment")
 
@@ -632,6 +633,7 @@ copy constructor, assignment operator and destructor."
 (ccide-build-class-defaults-f disabled)
 
 (defun ccide-gen-struct-constructors ()
+  (interactive)
   (save-excursion
     (beginning-of-line)
     (open-line 1)
@@ -643,12 +645,11 @@ copy constructor, assignment operator and destructor."
            (in (make-string (current-indentation) ? ))
            (inin (make-string (+ (current-indentation) c-basic-offset) ? )))
       (insert name "()\n" inin ": ")
-      (indent-according-to-mode)
       (loop for var in variables
             for first = t then nil
             if (not first) do (insert ", ")
-            do (insert (car var) "()"))
-      (insert "\n" in "{}\n"
+            do (insert (car var) " ()"))
+      (insert " {}\n\n"
               in name "(")
       (loop for var in variables
             for first = t then nil
@@ -658,8 +659,46 @@ copy constructor, assignment operator and destructor."
       (loop for var in variables
             for first = t then nil
             if (not first) do (insert ", ")
-            do (insert (car var) "(" (car var) "_)"))
-      (insert "\n" in "{}"))))
+            do (insert (car var) " (" (car var) "_)"))
+      (insert " {}"))))
+
+
+(defun ccide-gen-struct-compare ()
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (open-line 1)
+    (indent-according-to-mode)
+    (let* ((scope (c-get-block-scope))
+           (class (c-parse-class scope))
+           (variables (c-get-variable-members-with-type class))
+           (name (c-scope-name (aref (car (last scope)) 1)))
+           (in (make-string (current-indentation) ? ))
+           (inin (make-string (+ (current-indentation) c-basic-offset) ? )))
+
+      (insert "bool operator<(" name " const & other) const\n"
+              in "{ return\n")
+      (loop for ((varName . varType) . tail) on variables
+            do (insert inin varName " < other." varName " ? true :")
+            do (if tail
+                   (insert "\n" inin "other." varName " < " varName " ? false :\n")
+                 (insert " false; }\n\n")))
+      (insert in "bool operator==(" name " const & other) const\n"
+              in "{ return\n")
+      (loop for ((varName . varType) . tail) on variables
+            do (insert inin varName " == other." varName)
+            do (if tail (insert " &&\n") (insert "; }\n\n")))
+      (insert in "std::size_type hash_value() const\n"
+              in "{ std::size_t current (0);\n")
+      (loop for ((varName . varType) . tail) on variables
+            do (insert inin "boost::hash_combine(current, " varName ");\n"))
+      (insert inin "return current; }\n\n")
+      (insert in "void write(std::ostream & os) const\n"
+              in "{ os << \"{ \"")
+      (loop for ((varName . varType) . tail) on variables
+            do (insert "\n" inin "<< " varName)
+            do (if tail (insert " << ' '")))
+      (insert " << \" }\"; }\n"))))
 
 (defun ccide-class-impl-comment ()
   "Get implementation comment for current class"

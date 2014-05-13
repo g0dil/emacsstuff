@@ -123,8 +123,11 @@ correctly included.")
     (nil   nil                                separator)
 
     ;; documentation
-    ("h"  ccide-hide-all-doxy-comments        "Hide all Doxygen comments")
-    ("s"  ccide-show-all-comments             "Show all Doxygen comments")
+    ("h"   ccide-hide-all-doxy-comments        "Hide all Doxygen comments")
+    ("s"   ccide-show-all-comments             "Show all Doxygen comments")
+
+    ;; cython
+    ("yp"  ccide-grab-pxd-fn                   "Generate pxd function/method decl")
 
 ;    ;; CORBA
 ;    ("Cg"  ccide-gen-corba-impl                      "Generate CORBA impl")
@@ -1458,6 +1461,17 @@ instatiations at point."
           (delete-char 6)))))
 
 (provide 'cc-ide)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; cython support
+
+(defun ccide-grab-pxd-fn ()
+  (interactive)
+  (save-excursion
+    (c-beginning-of-defun-or-decl)
+    (let ((defn (c-build-pxd)))
+      (kill-new (cadr defn))
+      (message (concat (car defn))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; other stuff

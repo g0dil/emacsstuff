@@ -82,6 +82,7 @@ correctly included.")
     ;; file level
     ("fc"  ccide-file-comment                 "File comment")
     ("fs"  ccide-syncronize-includes          "Sync includes")
+    ("ff"  ccide-format-buffer                "Reformat buffer")
     (nil   nil                                separator)
 
     ;; class level

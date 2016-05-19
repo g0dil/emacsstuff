@@ -55,6 +55,10 @@ correctly included.")
 
 (defvar ccide-new-file-hook nil)
 
+(defvar ccide-new-file-command nil)
+
+(defvar ccide-format-command nil)
+
 (defconst c-user-prefix-re (regexp-opt c-user-prefixes t))
 
 (defconst ccide-doxy-tag-re
@@ -466,7 +470,7 @@ correctly included.")
                                 (while (re-search-forward
                                         (concat "^\\(//\\)?#\\s-*include \""
                                                 (regexp-quote (car include))
-                                                "\"\\s-*$")
+                                                "\"\\s-*")
                                         nil t)
                                   (goto-char (match-beginning 0))
                                   (if (looking-at "//")
@@ -478,9 +482,18 @@ correctly included.")
 
 (defun ccide-auto-decorate-new-files ()
   (if (and (buffer-file-name) (= (point-min) (point-max)))
-      (let ((status (buffer-modified-p)))
-        (ccide-file-comment)
-        (set-buffer-modified-p status))))
+      (if (or (not ccide-new-file-command)
+              (not (progn
+                     (save-buffer)
+                     (condition-case nil
+                         (progn
+                           (shell-command (format "%s %s" ccide-new-file-command (buffer-file-name)))
+                           (revert-buffer t t t)
+                           t)
+                       (error nil nil)))))
+          (let ((status (buffer-modified-p)))
+            (ccide-file-comment)
+            (set-buffer-modified-p status)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; class level
@@ -1554,7 +1567,18 @@ instatiations at point."
   (auto-fill-mode -1)
   (ccide-project-load-config)
   (ccide-directory-load-config)
-  (ccide-auto-decorate-new-files))
+  (ccide-auto-decorate-new-files)
+  (if ccide-format-command
+      (add-hook 'write-contents-functions 'ccide-format-buffer nil t)))
+
+(defun ccide-format-buffer ()
+  (interactive)
+  (if ccide-format-command
+      (let ((bkmp (bookmark-make-record)))
+        (unwind-protect
+            (shell-command-on-region (point-min) (point-max) ccide-format-command nil t)
+          (goto-char (cdr (bookmark-jump-noselect bkmp))))))
+  nil)
 
 (defun ccide-project-load-config ()
   (if (buffer-file-name)
@@ -1619,7 +1643,6 @@ DIR defaults to ccide-project-root. If FILE is a list, search for any file in li
               (back-to-indentation)
             (if (> (- (point-max) pos) (point))
                 (goto-char (- (point-max) pos))))))))
-
 
 
 ;;; Local Variables:

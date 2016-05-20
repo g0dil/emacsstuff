@@ -57,7 +57,7 @@ correctly included.")
 
 (defvar ccide-new-file-command nil)
 
-(defvar ccide-format-command nil)
+(defvar ccide-clang-format-command nil)
 
 (defconst c-user-prefix-re (regexp-opt c-user-prefixes t))
 
@@ -82,7 +82,7 @@ correctly included.")
     ;; file level
     ("fc"  ccide-file-comment                 "File comment")
     ("fs"  ccide-syncronize-includes          "Sync includes")
-    ("ff"  ccide-format-buffer                "Reformat buffer")
+    ("ff"  ccide-clang-format-buffer          "Reformat buffer")
     (nil   nil                                separator)
 
     ;; class level
@@ -1569,16 +1569,70 @@ instatiations at point."
   (ccide-project-load-config)
   (ccide-directory-load-config)
   (ccide-auto-decorate-new-files)
-  (if ccide-format-command
-      (add-hook 'write-contents-functions 'ccide-format-buffer nil t)))
+  (if ccide-clang-format-command
+      (add-hook 'write-contents-functions 'ccide-clang-format-buffer nil t)))
 
-(defun ccide-format-buffer ()
+(require 'xmltok)
+
+(defun clang-format-xmltok-attribute (name)
+  (loop for attribute in xmltok-attributes
+        if (string= (buffer-substring-no-properties (xmltok-attribute-name-start attribute)
+                                                    (xmltok-attribute-name-end attribute))
+                    name)
+        return (buffer-substring-no-properties (xmltok-attribute-value-start attribute)
+                                               (xmltok-attribute-value-end attribute))))
+
+(defun clang-format-parse-replacement-text ()
+  (cond ((eq tok 'char-ref)
+         (let ((number-start (+ xmltok-start 2))
+               (number-end (1- (point))))
+           (if (not (string= (buffer-substring-no-properties xmltok-start number-start)
+                             "&#"))
+               (error "invalid character reference"))
+           (char-to-string (string-to-number (buffer-substring-no-properties number-start
+                                                                             number-end)))))
+
+        (t
+         (buffer-substring-no-properties xmltok-start (point)))))
+
+(defun clang-format-parse-replacement ()
+  (let ((offset (string-to-number (clang-format-xmltok-attribute "offset")))
+        (length (string-to-number (clang-format-xmltok-attribute "length"))))
+    (list offset
+          length
+          (loop for tok = (xmltok-forward)
+                while (not (eq tok 'end-tag))
+                concat (clang-format-parse-replacement-text)))))
+
+(defun clang-format-parse-replacements (buffer)
+  (save-excursion
+    (set-buffer buffer)
+    (goto-char (point-min))
+    (xmltok-forward-prolog)
+    (loop for tok = (xmltok-forward)
+          while tok
+          if (and (eq tok 'start-tag)
+                  (string= (buffer-substring-no-properties (1+ xmltok-start) xmltok-name-end)
+                           "replacement"))
+          collect (clang-format-parse-replacement))))
+
+(defun clang-format-apply-replacements (replacements)
+  (loop for (offset length replacement) in (nreverse replacements)
+        do (progn
+             (goto-char (1+ offset))
+             (delete-char length)
+             (insert replacement))))
+
+(defun ccide-clang-format-buffer ()
   (interactive)
-  (if ccide-format-command
-      (let ((bkmp (bookmark-make-record)))
-        (unwind-protect
-            (shell-command-on-region (point-min) (point-max) ccide-format-command nil t)
-          (goto-char (cdr (bookmark-jump-noselect bkmp))))))
+  (if ccide-clang-format-command
+      (let ((replacementsBuffer (get-buffer-create " *clang-format-replacements*")))
+        (save-excursion (set-buffer replacementsBuffer) (erase-buffer))
+        (shell-command-on-region (point-min) (point-max) ccide-clang-format-command
+                                 replacementsBuffer nil)
+        (let ((replacements (clang-format-parse-replacements replacementsBuffer)))
+          (save-excursion
+            (clang-format-apply-replacements replacements)))))
   nil)
 
 (defun ccide-project-load-config ()

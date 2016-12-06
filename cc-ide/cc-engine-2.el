@@ -23,6 +23,8 @@
 
 ;;; Variables:
 
+(require 'cc-mode)
+
 (defconst c-template-arglist-syntax
   (let ((table (copy-syntax-table c-mode-syntax-table)))
     (modify-syntax-entry ?< "(" table)

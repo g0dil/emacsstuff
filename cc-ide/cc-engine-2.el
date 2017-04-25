@@ -42,7 +42,8 @@
                           "double" "void" "complex" "case" "goto"
                           "inline" "try" "catch" "throw" "inline_"
                           "throw_" "virtual" "new" "delete" "explicit"
-                          "prefix_" "typename" "template") t)
+                          "prefix_" "typename" "template" "override"
+                          "final") t)
             "\\b[^_]")))
 
 (defconst c-blocking-key

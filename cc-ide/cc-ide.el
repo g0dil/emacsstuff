@@ -59,6 +59,10 @@ correctly included.")
 
 (defvar ccide-clang-format-command nil)
 
+(defvar ccide-uncrustify-command "uncrustify")
+(defvar ccide-uncrustify-config nil)
+(defvar ccide-auto-format-tag nil)
+
 (defconst c-user-prefix-re (regexp-opt c-user-prefixes t))
 
 (defconst ccide-doxy-tag-re
@@ -1570,7 +1574,17 @@ instatiations at point."
   (ccide-directory-load-config)
   (ccide-auto-decorate-new-files)
   (if ccide-clang-format-command
-      (add-hook 'write-contents-functions 'ccide-clang-format-buffer nil t)))
+      (add-hook 'write-contents-functions 'ccide-clang-format-buffer nil t))
+  (if ccide-uncrustify-config
+      (add-hook 'write-contents-functions 'ccide-uncrustify-format-buffer nil t)))
+
+(defun ccide-match-auto-format-tag ()
+  (or (not ccide-auto-format-tag)
+      (and (save-excursion
+             (goto-char (point-min))
+             (search-forward ccide-auto-format-tag
+                             (save-excursion (forward-line 4) (point))
+                             t)) t)))
 
 (require 'xmltok)
 
@@ -1625,7 +1639,7 @@ instatiations at point."
 
 (defun ccide-clang-format-buffer ()
   (interactive)
-  (if ccide-clang-format-command
+  (if (and ccide-clang-format-command (ccide-match-auto-format-tag))
       (let ((replacementsBuffer (get-buffer-create " *clang-format-replacements*")))
         (save-excursion (set-buffer replacementsBuffer) (erase-buffer))
         (shell-command-on-region (point-min) (point-max) ccide-clang-format-command
@@ -1634,6 +1648,55 @@ instatiations at point."
           (save-excursion
             (clang-format-apply-replacements replacements)))))
   nil)
+
+(defun ccide-parse-ed-diff (buffer)
+  ;; an ed-diff already has the replacements in reverse order
+  (save-excursion
+    (set-buffer buffer)
+    (goto-char (point-min))
+    (loop while (= (forward-line 1) 0)
+          for b = (point)
+          for e = (save-excursion (end-of-line) (point))
+          for k = (search-forward "," e t)
+          for m = (buffer-substring-no-properties (1- e) e)
+          for rb = (when (not (equal m "d"))
+                     (forward-line 1) (point))
+          for re = (when (not (equal m "d"))
+                     (while (and (not (looking-at "\\.$")) (= (forward-line 1) 0))) (point))
+          for bl = (string-to-number (buffer-substring-no-properties b (1- (or k e))))
+          for el = (string-to-number (buffer-substring-no-properties (or k b) (1- e)))
+          collect (list (if (equal m "a") (1+ bl) bl)
+                        (1+ el)
+                        (if (not (equal m "d"))
+                            (buffer-substring-no-properties rb re)
+                          "")))))
+
+(defun ccide-apply-ed-diff (replacements)
+  (loop for (first last replacement) in replacements
+        do (progn
+             (goto-line first)
+             (delete-region (point) (progn (goto-line last) (point)))
+             (insert replacement))))
+
+(defun ccide-uncrustify-format-buffer ()
+  (interactive)
+  (if (and ccide-uncrustify-config (ccide-match-auto-format-tag))
+      (let ((tempFile (make-temp-file "ccideuncrustify"))
+            (diffBuffer (get-buffer-create " *uncrustify-format-diff*")))
+        (unwind-protect
+            (progn
+              (write-region (point-min) (point-max) tempFile)
+              (shell-command (concat (shell-quote-argument ccide-uncrustify-command)
+                                     " -c " (shell-quote-argument
+                                             (expand-file-name ccide-uncrustify-config))
+                                     " -l CPP -f " (shell-quote-argument tempFile)
+                                     " | diff -e " (shell-quote-argument tempFile) " -")
+                             diffBuffer nil))
+          (delete-file tempFile))
+        (let ((replacements (ccide-parse-ed-diff diffBuffer)))
+          (save-excursion
+            (ccide-apply-ed-diff replacements))))
+    nil))
 
 (defun ccide-project-load-config ()
   (if (buffer-file-name)

@@ -1618,6 +1618,11 @@ instatiations at point."
                 while (not (eq tok 'end-tag))
                 concat (clang-format-parse-replacement-text)))))
 
+(defun clang-format-parse-header ()
+  (let ((incflag (clang-format-xmltok-attribute "incomplete_format")))
+    (if (string= incflag "true")
+        (warn "clang-format: C++ syntax error in file"))))
+
 (defun clang-format-parse-replacements (buffer)
   (save-excursion
     (set-buffer buffer)
@@ -1625,10 +1630,11 @@ instatiations at point."
     (xmltok-forward-prolog)
     (loop for tok = (xmltok-forward)
           while tok
+          for n = (buffer-substring-no-properties (1+ xmltok-start) xmltok-name-end)
           if (and (eq tok 'start-tag)
-                  (string= (buffer-substring-no-properties (1+ xmltok-start) xmltok-name-end)
-                           "replacement"))
-          collect (clang-format-parse-replacement))))
+                  (string= n "replacement")) collect (clang-format-parse-replacement)
+          else if (and (eq tok ' start-tag)
+                       (string= n "replacements")) do (clang-format-parse-header))))
 
 (defun clang-format-apply-replacements (replacements)
   (loop for (offset length replacement) in (nreverse replacements)
@@ -1655,6 +1661,8 @@ instatiations at point."
     (set-buffer buffer)
     (goto-char (point-min))
     (loop while (= (forward-line 1) 0)
+          if (looking-at "Unmatched")
+            do (error (buffer-substring-no-properties (point) (progn (end-of-line) (point))))
           for b = (point)
           for e = (save-excursion (end-of-line) (point))
           for k = (search-forward "," e t)

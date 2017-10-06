@@ -1706,10 +1706,9 @@ instatiations at point."
             (ccide-apply-ed-diff replacements))))
     nil))
 
-(defun ccide-project-load-config ()
-  (if (buffer-file-name)
-      (let ((conf (ccide-project-search-upwards '(".project.el" "project.el")
-                                                (file-name-directory (buffer-file-name)))))
+(defun ccide-project-load-config (&optional force)
+  (if (or force (buffer-file-name))
+      (let ((conf (ccide-project-search-upwards '(".project.el" "project.el") default-directory)))
         (when conf
           (set (make-local-variable 'ccide-project-root) (file-name-directory conf))
           (load-file conf)))))

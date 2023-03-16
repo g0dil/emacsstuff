@@ -42,20 +42,20 @@
    (match optional-whitespace)
    (collect (match "\\w+\\b"))
    (return (cons (- position (length (car elements)))
-		 (car elements))))
+                 (car elements))))
 
  (term symbol ()
    (match optional-whitespace)
    (match word)
    (maybe (repeat (match optional-whitespace)
-		  (match "::")
-		  (match optional-whitespace)
-		  (match word)))
+                  (match "::")
+                  (match optional-whitespace)
+                  (match word)))
    (match optional-whitespace)
    (maybe (match "<")
-	  (match tokens)
-	  (match optional-whitespace)
-	  (match ">")))
+          (match tokens)
+          (match optional-whitespace)
+          (match ">")))
 
  (term tokens ()
    (match optional-whitespace)
@@ -64,14 +64,14 @@
        (and (match "{") (commit) (match tokens) (match "}"))
        (and (match "<") (commit) (match tokens) (match ">"))
        (match "[^][(){}<>]*")))
- 
+
  (term decl ()
    (match optional-whitespace)
    (collect (or (match primary)
-		(match group)
-	        (match member-pointer)
-		(match modifier)
-		(match word)))
+                (match group)
+                (match member-pointer)
+                (match modifier)
+                (match word)))
    (maybe (match arglist))
    (maybe (repeat (match array)))
    (match optional-whitespace)
@@ -94,8 +94,8 @@
 
  (term member-pointer ()
    (match optional-whitespace)
-   (match symbol) 
-   (match optional-whitespace) 
+   (match symbol)
+   (match optional-whitespace)
    (match "::")
    (match optional-whitespace)
    (match "*")
@@ -108,7 +108,7 @@
    (commit)
    (collect (match decl))
    (return (car elements)))
- 
+
  (term array ()
    (match optional-whitespace)
    (match "\\[")
@@ -117,7 +117,7 @@
    (match optional-whitespace)
    (match "\\]")
    (return (car elements)))
- 
+
  (term arglist ()
    (match optional-whitespace)
    (match "(")
@@ -130,6 +130,6 @@
 ;; place the curor at the end of the line and presse C-x C-e. You may
 ;; then use 'edebug-defun' on the declaration produced by this.
 ;;
-;; (let ((fn 'recdesc@@decl)) (save-excursion (insert (prin1-to-string (symbol-function fn)))) (insert "\n\n") (forward-char 1) (delete-char 6) (insert "defun " (symbol-name fn)) (forward-sexp) (insert "\n") (let ((start (point))) (forward-line 1) (replace-string ")" ")\n" nil start (point)) (indent-region (save-excursion (goto-char start) (forward-line -1) (point)) (point) nil))) 
+;; (let ((fn 'recdesc@@decl)) (save-excursion (insert (prin1-to-string (symbol-function fn)))) (insert "\n\n") (forward-char 1) (delete-char 6) (insert "defun " (symbol-name fn)) (forward-sexp) (insert "\n") (let ((start (point))) (forward-line 1) (replace-string ")" ")\n" nil start (point)) (indent-region (save-excursion (goto-char start) (forward-line -1) (point)) (point) nil)))
 
-(provide cc-parse)
+(provide 'cc-parse)

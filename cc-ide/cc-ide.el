@@ -166,7 +166,7 @@ correctly included.")
 (require 'hideshow)
 ;(require 'mantemp)
 (require 'locate)
-(require 'lucid)
+;(require 'lucid)
 (require 'varcmd)
 (require 'misc-local)
 
@@ -181,13 +181,13 @@ correctly included.")
           "_"
           (if ccide-project-name (concat ccide-project-name "_") "")
           (if ccide-project-root
-              (string-replace "/" "_"
+              (misc-re-string-replace "/" "_"
                               (substring (file-name-directory
                                           (expand-file-name (or file-name buffer-file-name)))
                                          (length ccide-project-root))
                               t)
             "")
-          (string-replace "\\." "_" (file-name-sans-extension
+          (misc-re-string-replace "\\." "_" (file-name-sans-extension
                                      (file-name-nondirectory
                                       (or file-name (buffer-file-name))))
                           t nil t t)
@@ -410,7 +410,7 @@ correctly included.")
                                              (match-end 0)
                                              (1- (length package))))
                     (insert "package "
-                            (string-replace "/" "." package t)
+                            (misc-re-string-replace "/" "." package t)
                             ";\n\n"))))
           (insert "class " (file-name-sans-extension
                             (file-name-nondirectory
@@ -1095,7 +1095,7 @@ declaration at the top of the kill ring."
       (message (concat "Implementation of " scoped-name " not found.")))))
 
 (defun ccide-implementation-args (state)
-  (string-replace "[ \t\n\r]+" ""
+  (misc-re-string-replace "[ \t\n\r]+" ""
                   (loop for (start . end) in (aref state 3)
                         for sep = "" then ","
                         concat sep
@@ -1109,7 +1109,7 @@ declaration at the top of the kill ring."
 
 (defun ccide-implementation-template-args (state)
   (and (aref state 0)
-       (string-replace "[ \t\n\r]+" ""
+       (misc-re-string-replace "[ \t\n\r]+" ""
                        (loop for (start . end) in   (save-excursion
                                                       (goto-char (caar (last (aref state 0))))
                                                       (c-parse-template-declaration))
@@ -1181,7 +1181,7 @@ declaration at the top of the kill ring."
                 type (match-string 1 vardef)
                 ws (substring vardef 0 (match-beginning 1)))
           (if (string-match "_$" varname)
-              (setq fnname (string-replace "_$" "" varname)
+              (setq fnname (mist-re-string-replace "_$" "" varname)
                     argname (concat "a_" fnname))
             (setq fnname (concat "q_" varname)
                   argname (concat "a_" varname)))
@@ -1726,7 +1726,11 @@ DIR defaults to ccide-project-root. If FILE is a list, search for any file in li
 
 (defun ccide-directory-load-config ()
   (if (file-readable-p ".dir.el")
-      (load-file ".dir.el")))
+    (load-file ".dir.el")))
+
+(defun ccide-find-build-script (name &rest args)
+  (let ((builder (ccide-project-search-upwards name default-directory)))
+    (set (make-local-variable 'compile-command) builder)))
 
 (add-hook 'c-mode-hook 'ccide-install-it)
 (add-hook 'c++-mode-hook 'ccide-install-it)

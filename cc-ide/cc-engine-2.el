@@ -734,7 +734,7 @@
 
 (defun c-defun-full-name (state)
   ;; return the full name of the defun in state
-  (string-replace "[ \t\n\r]+" ""
+  (misc-re-string-replace "[ \t\n\r]+" ""
                   (concat (c-get-full-prefix (aref state 8))
                           (if (aref state 8) "::" "")
                           (buffer-substring-no-properties (car (aref state 2))
